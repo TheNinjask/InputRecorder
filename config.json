@@ -1,6 +1,10 @@
 {
+    "has_default_press_duration": false,
     "default_press_duration_in_secs": 1,
-    "start_record_button": null,
-    "stop_record_button": null,
-    "emergency_button": "\\x04"
+    "start_record_button": "Key.enter",
+    "start_replay_button": "Key.space",
+    "pause_record_button": "Key.space",
+    "unpause_record_button": "Key.space",
+    "stop_record_button": "Key.enter",
+    "emergency_button": "Key.esc"
 }
