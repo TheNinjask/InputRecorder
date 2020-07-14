@@ -1,0 +1,6 @@
+{
+    "default_press_duration_in_secs": 1,
+    "start_record_button": null,
+    "stop_record_button": null,
+    "emergency_button": "Key.esc"
+}
