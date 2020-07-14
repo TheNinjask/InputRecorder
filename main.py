@@ -1,6 +1,7 @@
 import time, sched, json
 from pynput import mouse
 from pynput import keyboard
+from typing import List
 from sys import argv, exit
 import argparse
 
@@ -17,6 +18,7 @@ def load(filename='config') -> dict:
         pass
     return data
 
+
 parser = argparse.ArgumentParser(description='Input Recorder/Replayer and a good listener!')
 parser.add_argument('-m', '--mode', choices=['main', 'listen'], help='Mode for execution (Default: main)')
 args = parser.parse_known_args()
@@ -26,10 +28,13 @@ start_record_button = data.get('start_record_button')
 stop_record_button = data.get('stop_record_button')
 emergency_button = data.get('emergency_button', keyboard.Key.esc)
 
-def main(args):
+def keyTrans(key: keyboard.KeyCode) -> str:
+    return str(key).replace("'",'')
+
+def main(args: List[str]):
     print(args)
 
-def listen(args):
+def listen(args: List[str]):
     start_time = time.time()
     def mouse_listener():
         def on_move(x, y):
@@ -38,7 +43,6 @@ def listen(args):
 
         def on_click(x, y, button, pressed):
             at_time = time.time() - start_time
-            #str_button = button_trans.get(button, button)
             str_pressed = 'Pressed' if pressed else 'Released'
             print(f'{str_pressed} {button} button in ({x},{y}) at {at_time}')    
         mouse_listen = mouse.Listener(on_move=on_move, on_click=on_click)
@@ -49,16 +53,12 @@ def listen(args):
             try:
                 if key.char == None:
                     raise AttributeError
-                print(f'alphanumeric key {key.char} pressed at {at_time}')
+                print(f'alphanumeric key {keyTrans(key)} pressed at {at_time}')
             except AttributeError:
-                print(f'special key {key} pressed at {at_time}')
+                print(f'special key {keyTrans(key)} pressed at {at_time}')
         def on_release(key):
             at_time = time.time() - start_time
-            try:
-                str_key = key.char if not key.char == None else str(key)
-            except AttributeError:
-                str_key = str(key)
-            print(f'{str_key} released at {at_time}')
+            print(f'{keyTrans(key)} released at {at_time}')
         keyboard_listen = keyboard.Listener(on_press=on_press, on_release=on_release)
         keyboard_listen.start()
     mouse_listener()
@@ -67,10 +67,7 @@ def listen(args):
     keyboard_halt = None
     mouse_halt = None
     def on_release(key):
-        try:
-            str_key = key.char if not key.char == None else str(key)
-        except AttributeError:
-            str_key = str(key)
+        str_key = keyTrans(key)
         if str_key == str(emergency_button):
             mouse_halt.stop()
             return False
