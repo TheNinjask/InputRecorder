@@ -1,4 +1,4 @@
-import time, sched, json, uuid, argparse
+import time, sched, json, uuid, argparse, jsonpickle
 from tqdm import tqdm
 from threading import Lock
 from sys import argv, exit
@@ -148,7 +148,7 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
                 arr.append({
                     'controller': 'mouse',
                     'instruction': 'click',
-                    'button': str(button),
+                    'button': jsonpickle.encode(button),
                     'press': pressed,
                     'x': x,
                     'y': y,
@@ -170,7 +170,7 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
                 lock.acquire()
                 arr.append({
                     'controller': 'keyboard',
-                    'key': keyTrans(key),
+                    'key': jsonpickle.encode(key),
                     'press': True,
                     'time': at_time
                 })
@@ -186,7 +186,7 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
                 lock.acquire()
                 arr.append({
                     'controller': 'keyboard',
-                    'key': keyTrans(key),
+                    'key': jsonpickle.encode(key),
                     'press': False,
                     'time': at_time
                 })
@@ -225,12 +225,6 @@ s.run(False)
 exit(1)
 """
 
-#TODO LOOK FOR A WAY TO CHANGE THIS! EVEN IF IT MEANS A LOTTA WORK
-mouse_hot_garbage = {
-    'Button.left': mouse.Button.left,
-    'Button.right': mouse.Button.right,
-    'Button.middle': mouse.Button.middle
-}
 mouse_c = MouseController()
 def mouse_input(instr:dict):
     def move(instr:dict):
@@ -239,37 +233,35 @@ def mouse_input(instr:dict):
         mouse_c.position = (int(instr.get('x')), int(instr.get('y')))
         if instr.get('press'):
             mouse_c.press(
-                mouse_hot_garbage.get(
+                jsonpickle.decode(
                     instr.get('button')
-                ,instr.get('button'))
                 )
+            )
         else:
             mouse_c.release(
-                mouse_hot_garbage.get(
+                jsonpickle.decode(
                     instr.get('button')
-                ,instr.get('button'))
                 )
+            )
     switch = {
         'move': move,
         'click': click
     }
     switch.get(instr.get('instruction'))(instr)
-#TODO LOOK FOR A WAY TO CHANGE THIS! EVEN IF IT MEANS A LOTTA WORK
-keyboard_hot_garbage = {
-}
+
 keyboard_c = KeyboardController()
 def keyboard_input(instr:dict):
     if instr.get('press'):
         keyboard_c.press(
-            keyboard_hot_garbage.get(
+            jsonpickle.decode(
                 instr.get('key')
-            ,instr.get('key'))
+            )
         )
     else:
         keyboard_c.release(
-            keyboard_hot_garbage.get(
+            jsonpickle.decode(
                 instr.get('key')
-            ,instr.get('key'))
+            )
         )
 
 handler = {
