@@ -109,10 +109,13 @@ def pause_recording_listener() -> Tuple[keyboard.Listener, mouse.Listener]:
     return (keyboard_halt, mouse_halt)
 
 
-def record(args: List[str] = [], file: str = None, **kwargs: dict):
+def record(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
     global lenght
+    
+    file = kwargs.get('kwargs').get('file') if file == None else file
     if file == None:
-        file = kwargs.get(file, f'record-{str(uuid.uuid1())}.scrpt')
+        file = f'record-{str(uuid.uuid1())}.scrpt'
+     
     print(f'Recording on file name: {file}')
     if start_record_button == None:
         print('Please provide a start_record_button at config.json')
@@ -289,7 +292,7 @@ def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None
     s.run()
 
 
-def listen(args: List[str] = [], **kwargs: dict):
+def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs: dict):
     start_time = time.time()
     def mouse_listener():
         def on_move(x, y):
