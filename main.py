@@ -1,9 +1,12 @@
 import time, sched, json, uuid, argparse
+from tqdm import tqdm
+from threading import Lock
+from sys import argv, exit
 from typing import List, Tuple, Callable
 from pynput import mouse
 from pynput import keyboard
-from sys import argv, exit
-from threading import Lock
+from pynput.mouse import Controller as MouseController
+from pynput.keyboard import Controller as KeyboardController
 
 def save(data: dict, filename='config', extension='.json'):
     if extension == None:
@@ -109,7 +112,7 @@ def pause_recording_listener() -> Tuple[keyboard.Listener, mouse.Listener]:
 def record(args: List[str] = [], file: str = None, **kwargs: dict):
     global lenght
     if file == None:
-        file = kwargs.get(file, f'record-{str(uuid.uuid1())}')
+        file = kwargs.get(file, f'record-{str(uuid.uuid1())}.scrpt')
     print(f'Recording on file name: {file}')
     if start_record_button == None:
         print('Please provide a start_record_button at config.json')
@@ -128,6 +131,7 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
             at_time = time.time() - start_time
             lock.acquire()
             arr.append({
+                'controller': 'mouse',
                 'instruction': 'move',
                 'x': x,
                 'y': y,
@@ -142,7 +146,8 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
             if (pressed and not was_pressed) or (not pressed and was_pressed):
                 lock.acquire()
                 arr.append({
-                    'instruction': 'mouse',
+                    'controller': 'mouse',
+                    'instruction': 'click',
                     'button': str(button),
                     'press': pressed,
                     'x': x,
@@ -164,7 +169,7 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
             if not was_pressed:
                 lock.acquire()
                 arr.append({
-                    'instruction': 'key',
+                    'controller': 'keyboard',
                     'key': keyTrans(key),
                     'press': True,
                     'time': at_time
@@ -180,7 +185,7 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
             if was_pressed:
                 lock.acquire()
                 arr.append({
-                    'instruction': 'key',
+                    'controller': 'keyboard',
                     'key': keyTrans(key),
                     'press': False,
                     'time': at_time
@@ -202,7 +207,7 @@ def record(args: List[str] = [], file: str = None, **kwargs: dict):
     rainbow.stop()
     tuple_listner[0].stop()
     tuple_listner[1].stop()
-    save(arr, file, '.scrpt')
+    save(arr, file, None)
 
 """
 # Set up scheduler
@@ -213,19 +218,84 @@ s.enter(10, 0, print, argument=['hi'])
 # Block until the action has been run
 start_time = time.time()
 time.sleep(5)
-s.run()
+s.run(False)
 print(time.time() - start_time)
+time.sleep(7)
+s.run(False)
 exit(1)
 """
+
+#TODO LOOK FOR A WAY TO CHANGE THIS! EVEN IF IT MEANS A LOTTA WORK
+mouse_hot_garbage = {
+    'Button.left': mouse.Button.left,
+    'Button.right': mouse.Button.right,
+    'Button.middle': mouse.Button.middle
+}
+mouse_c = MouseController()
+def mouse_input(instr:dict):
+    def move(instr:dict):
+        mouse_c.position = (int(instr.get('x')), int(instr.get('y')))
+    def click(instr:dict):
+        mouse_c.position = (int(instr.get('x')), int(instr.get('y')))
+        if instr.get('press'):
+            mouse_c.press(
+                mouse_hot_garbage.get(
+                    instr.get('button')
+                ,instr.get('button'))
+                )
+        else:
+            mouse_c.release(
+                mouse_hot_garbage.get(
+                    instr.get('button')
+                ,instr.get('button'))
+                )
+    switch = {
+        'move': move,
+        'click': click
+    }
+    switch.get(instr.get('instruction'))(instr)
+#TODO LOOK FOR A WAY TO CHANGE THIS! EVEN IF IT MEANS A LOTTA WORK
+keyboard_hot_garbage = {
+}
+keyboard_c = KeyboardController()
+def keyboard_input(instr:dict):
+    if instr.get('press'):
+        keyboard_c.press(
+            keyboard_hot_garbage.get(
+                instr.get('key')
+            ,instr.get('key'))
+        )
+    else:
+        keyboard_c.release(
+            keyboard_hot_garbage.get(
+                instr.get('key')
+            ,instr.get('key'))
+        )
+
+handler = {
+    'mouse': mouse_input,
+    'keyboard': keyboard_input
+}
+
+
 def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
+    
     file = kwargs.get('kwargs').get('file') if file == None else file
     if file == None:
         f_error("Missing -f / --file parameter!")
     arr:List[dict] = load(file,extension=None)
-    print(arr)
-    print(len(arr))
-    for elem in arr:
-        print(f'Instruction {elem.get("instruction")} {elem.get("key")}')
+    
+    print(f'Press {start_replay_button} key to start replay!')
+    waitForKey(start_replay_button)
+    
+    s = sched.scheduler(time.time, time.sleep)
+    for elem in tqdm(arr, 'Loading & Replaying...'):
+        # Rework line below?
+        s.enter(elem.get('time'), 0, handler.get(elem.get('controller')), [elem])
+        s.run(False)
+    print('Only Replaying...')
+    s.run()
+
 
 def listen(args: List[str] = [], **kwargs: dict):
     start_time = time.time()
