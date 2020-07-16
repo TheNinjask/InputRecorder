@@ -212,22 +212,6 @@ def record(args: List[str] = [], file: str = None, f_error: Callable[[str], None
     tuple_listner[1].stop()
     save(arr, file, None)
 
-"""
-# Set up scheduler
-s = sched.scheduler(time.time, time.sleep)
-# Schedule when you want the action to occur
-s.enter(10, 0, print, argument=['hi'])
-#s.enterabs(time.time()+10, 0, print, 'hi')
-# Block until the action has been run
-start_time = time.time()
-time.sleep(5)
-s.run(False)
-print(time.time() - start_time)
-time.sleep(7)
-s.run(False)
-exit(1)
-"""
-
 mouse_c = MouseController()
 def mouse_input(instr:dict):
     def move(instr:dict):
