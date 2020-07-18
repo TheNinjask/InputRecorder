@@ -258,18 +258,12 @@ def mouse_input(instr:dict):
 
 keyboard_c = KeyboardController()
 def keyboard_input(instr:dict):
-    if instr.get('press'):
-        keyboard_c.press(
-            jsonpickle.decode(
-                instr.get('key')
-            )
-        )
-    else:
-        keyboard_c.release(
-            jsonpickle.decode(
-                instr.get('key')
-            )
-        )
+    keyboard_c.touch(
+        jsonpickle.decode(
+            instr.get('key')
+        ),
+        instr.get('press')
+    )
 
 handler = {
     'mouse': mouse_input,
