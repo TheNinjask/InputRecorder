@@ -1,4 +1,4 @@
-import time, sched, json, uuid, argparse, jsonpickle
+import time, sched, json, uuid, argparse, jsonpickle, pydirectinput
 from tqdm import tqdm
 from threading import Lock
 from sys import argv, exit
@@ -34,11 +34,13 @@ pause_record_button = data.get('pause_record_button')
 unpause_record_button = data.get('unpause_record_button')
 emergency_button = data.get('emergency_button', keyboard.Key.esc)
 
+use_pydirect_input = data.get('use_pydirect_input', False)
+
 class DrBoom(Exception):
     pass
 
 def keyTrans(key: keyboard.KeyCode) -> str:
-    return str(key).replace("'",'')
+    return str(key).replace("'",'').replace('Key.','')
 
 def ignoreKey(key: str) -> bool:
     if key in [start_record_button, stop_record_button, pause_record_button, unpause_record_button, emergency_button]:
@@ -257,7 +259,7 @@ def mouse_input(instr:dict):
     switch.get(instr.get('instruction'))(instr)
 
 keyboard_c = KeyboardController()
-def keyboard_input(instr:dict):
+def keyboard_pynput(instr:dict):
     keyboard_c.touch(
         jsonpickle.decode(
             instr.get('key')
@@ -265,9 +267,31 @@ def keyboard_input(instr:dict):
         instr.get('press')
     )
 
+def keyboard_pydirectinput(instr:dict):
+    if instr.get('press'):
+        pydirectinput.keyDown(
+            keyTrans(
+                str(
+                    jsonpickle.decode(
+                        instr.get('key')
+                    )
+                )
+            )
+        )
+    else:
+        pydirectinput.keyUp(
+            keyTrans(
+                str(
+                    jsonpickle.decode(
+                        instr.get('key')
+                    )
+                )
+            )
+        )
+        
 handler = {
     'mouse': mouse_input,
-    'keyboard': keyboard_input
+    'keyboard': keyboard_pynput if not use_pydirect_input else keyboard_pydirectinput
 }
 
 
@@ -297,14 +321,14 @@ def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs
             at_time = time.time() - start_time
             print(f'Mouse in ({x},{y}) at {at_time}')
 
-        def on_click(x, y, button, pressed):
+        def on_click(x, y, button: mouse.Button, pressed):
             at_time = time.time() - start_time
             str_pressed = 'Pressed' if pressed else 'Released'
             print(f'{str_pressed} {button} button in ({x},{y}) at {at_time}')    
         mouse_listen = mouse.Listener(on_move=on_move, on_click=on_click)
         mouse_listen.start()
     def keyboard_listener():
-        def on_press(key):
+        def on_press(key: keyboard.KeyCode):
             at_time = time.time() - start_time
             try:
                 if key.char == None:
