@@ -335,10 +335,25 @@ modes = {
 }
 
 parser = argparse.ArgumentParser(description='Input Recorder/Replayer and a good listener!')
-parser.add_argument('-m', '--mode', choices=modes.keys(), help='Mode for execution (Default: listen)')
+parser.add_argument('-m', '--mode', nargs=1, choices=modes.keys(), help='Mode for execution (Default: listen) (Priority n0)')
 parser.add_argument('-f', '--file', metavar="path/to/file", help='File\'s Path to write/read script (Needed for replay and Optional for record)')
+parser.add_argument('-l', '--listen', action='store_true', help='Skip imediatly to listen mode. (Priority n1)')
+parser.add_argument('-rc', '--record', action='store_true', help='Skip imediatly to record mode. (Priority n2)')
+parser.add_argument('-rp', '--replay', action='store_true', help='Skip imediatly to replay mode. (Priority n3)')
 args = parser.parse_known_args()
-funct = modes.get(vars(args[0]).get('mode'), listen)
+
+funct = modes.get(vars(args[0]).get('mode'))
+
+if funct == None:
+    if vars(args[0]).get('listen'):
+        funct = listen
+    elif vars(args[0]).get('record'):
+        funct = record
+    elif vars(args[0]).get('replay'):
+        funct = replay
+    else:
+        funct = listen
+
 def raise_param_error(message='Unspecified!'):
     parser.error(message=message)
 
