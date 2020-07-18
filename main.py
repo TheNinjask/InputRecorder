@@ -34,6 +34,9 @@ pause_record_button = data.get('pause_record_button')
 unpause_record_button = data.get('unpause_record_button')
 emergency_button = data.get('emergency_button', keyboard.Key.esc)
 
+class DrBoom(Exception):
+    pass
+
 def keyTrans(key: keyboard.KeyCode) -> str:
     return str(key).replace("'",'')
 
@@ -42,18 +45,32 @@ def ignoreKey(key: str) -> bool:
         return True
     return False
 
+big_red_button = None
 def waitForKey(given: str):
+    global big_red_button
+    big_red_button = None
     keyboard_halt = None
     mouse_halt = None
     def on_release(key):
+        global big_red_button
         str_key = keyTrans(key)
+        if str_key == emergency_button:
+            big_red_button = DrBoom()
+            mouse_halt.stop()
+            return False
         if str_key == given:
             mouse_halt.stop()
             return False
     def on_click(x, y, button, pressed):
+        global big_red_button
+        if not pressed and str(button) == emergency_button:
+            big_red_button = DrBoom()
+            keyboard_halt.stop()
+            return False
         if not pressed and str(button) == given:
             keyboard_halt.stop()
             return False
+    
     keyboard_halt = keyboard.Listener(on_release=on_release)
     mouse_halt = mouse.Listener(on_click=on_click)
     
@@ -62,6 +79,9 @@ def waitForKey(given: str):
     
     keyboard_halt.join()
     mouse_halt.join()
+    if isinstance(big_red_button, DrBoom):
+        print(f'The emergency button {emergency_button} was pressed! Stopping.')
+        exit(1)
 
 isPaused = False
 lenght = -1
