@@ -268,18 +268,8 @@ def keyboard_pynput(instr:dict):
     )
 
 def keyboard_pydirectinput(instr:dict):
-    if instr.get('press'):
-        pydirectinput.keyDown(
-            keyTrans(
-                str(
-                    jsonpickle.decode(
-                        instr.get('key')
-                    )
-                )
-            )
-        )
-    else:
-        pydirectinput.keyUp(
+    func = pydirectinput.keyDown if instr.get('press') else pydirectinput.keyUp 
+    func(
             keyTrans(
                 str(
                     jsonpickle.decode(
@@ -358,8 +348,8 @@ parser.add_argument('-f', '--file', metavar="path/to/file", help='File\'s Path t
 parser.add_argument('-l', '--listen', action='store_true', help='Skip imediatly to listen mode. (Priority n1)')
 parser.add_argument('-rc', '--record', action='store_true', help='Skip imediatly to record mode. (Priority n2)')
 parser.add_argument('-rp', '--replay', action='store_true', help='Skip imediatly to replay mode. (Priority n3)')
-parser.add_argument('-d', '--pydirectinput', action='store_true', help='Set pydirectinput\'s keyboard (Overrides the option in config.json & Priority n2)')
-parser.add_argument('-n', '--pynput', action='store_true', help='Set pynput\'s keyboard (Overrides the option in config.json & Priority n1)')
+parser.add_argument('-pd', '--pydirectinput', action='store_true', help='Set pydirectinput\'s keyboard (Overrides the option in config.json & Priority n2)')
+parser.add_argument('-pn', '--pynput', action='store_true', help='Set pynput\'s keyboard (Overrides the option in config.json & Priority n1)')
 args = parser.parse_known_args()
 
 funct = modes.get(vars(args[0]).get('mode'))
@@ -373,10 +363,11 @@ if funct == None:
         funct = replay
     else:
         funct = listen
+
 if vars(args[0]).get('pynput'):
-    use_pydirect_input = False
+    handler['keyboard'] = keyboard_pynput
 elif vars(args[0]).get('pydirectinput'):
-    use_pydirect_input = True
+    handler['keyboard'] = keyboard_pydirectinput
 
 def raise_param_error(message='Unspecified!'):
     parser.error(message=message)
