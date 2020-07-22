@@ -4,8 +4,8 @@
     "default_press_duration_in_secs": 1,
     "start_record_button": "<96>",
     "start_replay_button": "<96>",
-    "pause_record_button": "+",
-    "unpause_record_button": "+",
+    "pause_record_button": "add",
+    "unpause_record_button": "add",
     "stop_record_button": "<96>",
     "emergency_button": "esc"
 }

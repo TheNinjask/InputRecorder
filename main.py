@@ -1,4 +1,4 @@
-import time, sched, json, uuid, argparse, jsonpickle, pydirectinput
+import re, time, sched, json, uuid, argparse, jsonpickle, pydirectinput
 from tqdm import tqdm
 from threading import Lock
 from sys import argv, exit
@@ -40,7 +40,21 @@ class DrBoom(Exception):
     pass
 
 def keyTrans(key: keyboard.KeyCode) -> str:
-    return str(key).replace("'",'').replace('Key.','')
+    key_map = {
+        '+': 'add',
+        '-': 'subtract',
+        '*': 'multiply',
+        '/': 'divide',
+        'shiftr': 'shift',
+        'ctrll': 'ctrl',
+        'ctrlr': 'ctrlright',
+        'altl': 'alt',
+        'altr': 'altright'
+        #'cmd': 'win'
+    }
+    str_key = re.sub(r"('|Key\.|\[|\]|_)", '', str(key))
+    #print(key_map.get(str_key, str_key))
+    return key_map.get(str_key, str_key)
 
 def ignoreKey(key: str) -> bool:
     if key in [start_record_button, stop_record_button, pause_record_button, unpause_record_button, emergency_button]:
@@ -305,6 +319,7 @@ def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None
 
 
 def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs: dict):
+        
     start_time = time.time()
     def mouse_listener():
         def on_move(x, y):
@@ -331,8 +346,10 @@ def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs
             print(f'{keyTrans(key)} released at {at_time}')
         keyboard_listen = keyboard.Listener(on_press=on_press, on_release=on_release)
         keyboard_listen.start()
-    mouse_listener()
-    keyboard_listener()
+    if not 'mouse_off' in args:
+        mouse_listener()
+    if not 'key_off' in args:
+        keyboard_listener()
 
     waitForKey(emergency_button)
 
