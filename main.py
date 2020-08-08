@@ -378,13 +378,11 @@ class replay_ender(Thread):
         Thread.__init__(self)
         self.func = func
     def run(self):
-        global replay_ender_flag
         func()
         replay_ender_flag.set()
 
 
 def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
-    global replay_ender_flag
     file = kwargs.get('kwargs').get('file') if file == None else file
     if file == None:
         f_error("Missing -f / --file parameter!")
@@ -443,12 +441,14 @@ def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs
 
     waitForKey(stop_listen_button)
 
-
+wait_for_all = Event()
 class multiple_replay(Thread):
     def __init__(self, trigger: str, script: List[dict]):
         Thread.__init__(self)
     def run(self):
-        pass
+        wait_for_all.wait()
+        while True:
+            raw_replay(trigger, script)
 
 def keybind_listen(keybind_sett: dict) -> dict:
     arr = keybind_sett.get('keybinds')
@@ -457,6 +457,7 @@ def keybind_listen(keybind_sett: dict) -> dict:
     for elem in tqdm(arr.items(), 'Loading Scripts...'):
         script = load(elem[1], None)
         multiple_replay(elem[0], script).run()
+    wait_for_all.set()
     print(f'All scripts loaded. Press {stop_listen_button} to exit.')
     waitForKey(stop_listen_button)
 
