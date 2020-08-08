@@ -7,5 +7,6 @@
     "pause_record_button": "add",
     "unpause_record_button": "add",
     "stop_record_button": "<96>",
+    "stop_listen_button": "<96>",
     "emergency_button": "esc"
 }

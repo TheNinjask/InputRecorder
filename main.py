@@ -1,6 +1,6 @@
 import re, time, sched, json, uuid, argparse, jsonpickle, pydirectinput
 from tqdm import tqdm
-from threading import Lock, Thread
+from threading import Lock, Thread, Event
 from sys import argv, exit
 from typing import List, Tuple, Callable
 from pynput import mouse
@@ -33,6 +33,7 @@ start_replay_button = data.get('start_replay_button')
 stop_record_button = data.get('stop_record_button')
 pause_record_button = data.get('pause_record_button')
 unpause_record_button = data.get('unpause_record_button')
+stop_listen_button = data.get('stop_listen_button')
 emergency_button = data.get('emergency_button', keyboard.Key.esc)
 
 listen_mouse = True
@@ -355,9 +356,35 @@ handler = {
     'keyboard': keyboard_pynput if not use_pydirect_input else keyboard_pydirectinput
 }
 
+def raw_replay(trigger: str, script: List[dict]):
+    waitForKey(start_replay_button)  
+    s = sched.scheduler(time.time, time.sleep)
+    key_wait = Thread(target= waitForKey, args=[emergency_button])
+    key_wait.start()
+    for elem in arr:
+        # Rework line below?
+        s.enter(elem.get('time'), 0, handler.get(elem.get('controller')), [elem])
+        s.run(False)
+        if not key_wait.is_alive():
+            exit(1)
+    while not s.empty():
+        s.run(False)
+        if not key_wait.is_alive():
+            exit(1)
+
+replay_ender_flag = Event()
+class replay_ender(Thread):
+    def __init__(self, func: Callable):
+        Thread.__init__(self)
+        self.func = func
+    def run(self):
+        global replay_ender_flag
+        func()
+        replay_ender_flag.set()
+
 
 def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
-    
+    global replay_ender_flag
     file = kwargs.get('kwargs').get('file') if file == None else file
     if file == None:
         f_error("Missing -f / --file parameter!")
@@ -376,10 +403,9 @@ def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None
         if not key_wait.is_alive():
             exit(1)
     print('Only Replaying...')
-    while not s.empty():
-        s.run(False)
-        if not key_wait.is_alive():
-            exit(1)
+    replay_ender(s.run).run()
+    replay_ender(key_wait.join).run()
+    replay_ender_flag.wait()
 
 def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs: dict):
         
@@ -415,10 +441,24 @@ def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs
         if listen_key:
             keyboard_listener()
 
-    waitForKey(emergency_button)
+    waitForKey(stop_listen_button)
 
-def keybind_listen():
-    pass
+
+class multiple_replay(Thread):
+    def __init__(self, trigger: str, script: List[dict]):
+        Thread.__init__(self)
+    def run(self):
+        pass
+
+def keybind_listen(keybind_sett: dict) -> dict:
+    arr = keybind_sett.get('keybinds')
+    if arr == None or len(arr) == 0:
+        print('Nothing to listen to :|')
+    for elem in tqdm(arr.items(), 'Loading Scripts...'):
+        script = load(elem[1], None)
+        multiple_replay(elem[0], script).run()
+    print(f'All scripts loaded. Press {stop_listen_button} to exit.')
+    waitForKey(stop_listen_button)
 
 def set_script_keybind(keybind_sett: dict) -> dict:
     print(f'Press {start_record_button} to listen for trigger')
