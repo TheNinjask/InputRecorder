@@ -1,6 +1,6 @@
 import re, time, sched, json, uuid, argparse, jsonpickle, pydirectinput
 from tqdm import tqdm
-from threading import Lock
+from threading import Lock, Thread
 from sys import argv, exit
 from typing import List, Tuple, Callable
 from pynput import mouse
@@ -8,18 +8,18 @@ from pynput import keyboard
 from pynput.mouse import Controller as MouseController
 from pynput.keyboard import Controller as KeyboardController
 
-def save(data: dict, filename='config', extension='.json'):
+def save(data: dict, filename='config', extension='json'):
     if extension == None:
         extension = ''
-    with open(f'{filename}{extension}', 'w') as outfile:
+    with open(f'{filename}{"" if extension == None else "."}{extension}', 'w') as outfile:
         json.dump(data, outfile)
 
-def load(filename='config', extension='.json') -> dict:
+def load(filename='config', extension='json') -> dict:
     data = {}
     if extension == None:
         extension = ''
     try:
-        with open(f'{filename}{extension}') as infile:
+        with open(f'{filename}{"" if extension == None else "."}{extension}') as infile:
             data = json.load(infile)
     except Exception as eff:
         print(eff)
@@ -34,6 +34,8 @@ pause_record_button = data.get('pause_record_button')
 unpause_record_button = data.get('unpause_record_button')
 emergency_button = data.get('emergency_button', keyboard.Key.esc)
 
+listen_mouse = True
+listen_key = True
 use_pydirect_input = data.get('use_pydirect_input', False)
 
 class DrBoom(Exception):
@@ -56,8 +58,8 @@ def keyTrans(key: keyboard.KeyCode) -> str:
     #print(key_map.get(str_key, str_key))
     return key_map.get(str_key, str_key)
 
-def ignoreKey(key: str) -> bool:
-    if key in [start_record_button, stop_record_button, pause_record_button, unpause_record_button, emergency_button]:
+def ignoreKey(key: str, exclude: List = [start_record_button, start_replay_button, stop_record_button, pause_record_button, unpause_record_button, emergency_button]) -> bool:
+    if key in exclude:
         return True
     return False
 
@@ -234,18 +236,22 @@ def record(args: List[str] = [], file: str = None, f_error: Callable[[str], None
         keyboard_listen = keyboard.Listener(on_press=on_press, on_release=on_release)
         keyboard_listen.start()
         return keyboard_listen
-    mice = mouse_listener()
-    rainbow = keyboard_listener()
+    if listen_mouse:
+        mice = mouse_listener()
+    if listen_key:
+        rainbow = keyboard_listener()
     print(f'Press {stop_record_button} key to stop recording!')
     str_pause = f'Press {pause_record_button} key to pause recording!'
     lenght = len(str_pause)
     print(str_pause, end='\r')
-    tuple_listner = pause_recording_listener()
+    tuple_listener = pause_recording_listener()
     waitForKey(stop_record_button)
-    mice.stop()
-    rainbow.stop()
-    tuple_listner[0].stop()
-    tuple_listner[1].stop()
+    if listen_mouse:
+        mice.stop()
+    if listen_key:
+        rainbow.stop()
+    tuple_listener[0].stop()
+    tuple_listener[1].stop()
     save(arr, file, None)
 
 mouse_c = MouseController()
@@ -310,13 +316,19 @@ def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None
     waitForKey(start_replay_button)
     
     s = sched.scheduler(time.time, time.sleep)
+    key_wait = Thread(target= waitForKey, args=[emergency_button])
+    key_wait.start()
     for elem in tqdm(arr, 'Loading & Replaying...'):
         # Rework line below?
         s.enter(elem.get('time'), 0, handler.get(elem.get('controller')), [elem])
         s.run(False)
+        if not key_wait.is_alive():
+            exit(1)
     print('Only Replaying...')
-    s.run()
-
+    while not s.empty():
+        s.run(False)
+        if not key_wait.is_alive():
+            exit(1)
 
 def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs: dict):
         
@@ -346,25 +358,70 @@ def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs
             print(f'{keyTrans(key)} released at {at_time}')
         keyboard_listen = keyboard.Listener(on_press=on_press, on_release=on_release)
         keyboard_listen.start()
-    if not 'mouse_off' in args:
-        mouse_listener()
-    if not 'key_off' in args:
-        keyboard_listener()
+        
+        if listen_mouse:
+            mouse_listener()
+        if listen_key:
+            keyboard_listener()
 
     waitForKey(emergency_button)
+
+def keybind(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
+    file = kwargs.get('kwargs').get('file') if file == None else file
+    keybind_sett = {}
+    if not file == None:
+        keybind_sett = load(filename=file)
+    menu = {
+        '0': "#exit",
+        '1': keybind_listen,
+        '2': set_script_keybind,
+        '3': clear_keybind,
+        '4': save_keybind_sett
+    }
+
+def menu(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
+    selection = {
+        '0': "#exit",
+        '1': listen,
+        '2': replay,
+        '3': record,
+        '4': keybind
+    }
+    option = None
+    def print_options():
+        print('0 - Exit')
+        print('1 - Listen Mode')
+        print('2 - Replay Mode')
+        print('3 - Record Mode')
+        print('4 - Keybind Mode')
+        
+    print_options()
+    while not option == 0:
+        option = str(input('Insert option number: '))
+        file = None if not option == '2' else str(input('Provide path of file for replay: '))
+        if not option == 0:
+            funct = selection.get(option)
+            funct([], file=file, f_error = f_error, kwargs = kwargs)
+        if not option in selection.keys():
+            print_options()
 
 modes = {
     'listen': listen,
     'replay': replay,
-    'record': record
+    'record': record,
+    'keybind': keybind,
+    'menu': ""
 }
 
 parser = argparse.ArgumentParser(description='Input Recorder/Replayer and a good listener!')
-parser.add_argument('-m', '--mode', nargs=1, choices=modes.keys(), help='Mode for execution (Default: listen) (Priority n0)')
+parser.add_argument('-m', '--mode', nargs=1, choices=modes.keys(), help='Mode for execution (Default: menu) (Priority n0)')
 parser.add_argument('-f', '--file', metavar="path/to/file", help='File\'s Path to write/read script (Needed for replay and Optional for record)')
+parser.add_argument('-nm', '--no_mouse', action='store_true', help='Disable mouse listener.')
+parser.add_argument('-nk', '--no_keyboard', action='store_true', help='Disable keyboard listener.')
 parser.add_argument('-l', '--listen', action='store_true', help='Skip imediatly to listen mode. (Priority n1)')
 parser.add_argument('-rc', '--record', action='store_true', help='Skip imediatly to record mode. (Priority n2)')
 parser.add_argument('-rp', '--replay', action='store_true', help='Skip imediatly to replay mode. (Priority n3)')
+parser.add_argument('-k', '--keybind', action='store_true', help='Skip imediatly to keybind mode. (Priority n4)')
 parser.add_argument('-pd', '--pydirectinput', action='store_true', help='Set pydirectinput\'s keyboard (Overrides the option in config.json & Priority n2)')
 parser.add_argument('-pn', '--pynput', action='store_true', help='Set pynput\'s keyboard (Overrides the option in config.json & Priority n1)')
 args = parser.parse_known_args()
@@ -378,13 +435,20 @@ if funct == None:
         funct = record
     elif vars(args[0]).get('replay'):
         funct = replay
+    elif vars(args[0]).get('keybind'):
+        funct = keybind
     else:
-        funct = listen
+        funct = menu
 
 if vars(args[0]).get('pynput'):
     handler['keyboard'] = keyboard_pynput
 elif vars(args[0]).get('pydirectinput'):
     handler['keyboard'] = keyboard_pydirectinput
+
+if vars(args[0]).get('no_mouse'):
+    listen_mouse = False
+if vars(args[0]).get('no_keyboard'):
+    listen_key = False
 
 def raise_param_error(message='Unspecified!'):
     parser.error(message=message)
