@@ -7,6 +7,7 @@ from pynput import mouse
 from pynput import keyboard
 from pynput.mouse import Controller as MouseController
 from pynput.keyboard import Controller as KeyboardController
+from pprint import pprint
 
 def save(data: dict, filename='config', extension='json'):
     if extension == None:
@@ -100,6 +101,56 @@ def waitForKey(given: str):
     if isinstance(big_red_button, DrBoom):
         print(f'The emergency button {emergency_button} was pressed! Stopping.')
         exit(1)
+
+def waitForAnyKey() -> str:
+    global big_red_button
+    global chosen
+    big_red_button = None
+    keyboard_halt = None
+    mouse_halt = None
+    chosen = None
+    def on_release(key):
+        global big_red_button
+        global chosen
+        str_key = keyTrans(key)
+        if str_key == emergency_button:
+            big_red_button = DrBoom()
+            mouse_halt.stop()
+            return False
+        if chosen == None:
+            chosen = str_key
+        if not mouse_halt == None:
+            mouse_halt.stop()
+        return False
+    def on_click(x, y, button, pressed):
+        global big_red_button
+        global chosen
+        if not pressed and str(button) == emergency_button:
+            big_red_button = DrBoom()
+            keyboard_halt.stop()
+            return False
+        if chosen == None:
+            chosen = str(button)
+        if not keyboard_halt == None:
+            keyboard_halt.stop()
+        return False
+    
+    if listen_key:
+        keyboard_halt = keyboard.Listener(on_release=on_release)
+        keyboard_halt.start()
+    if listen_mouse:
+        mouse_halt = mouse.Listener(on_click=on_click)
+        mouse_halt.start()
+    
+    if listen_key:
+        keyboard_halt.join()
+    if listen_mouse:
+        mouse_halt.join()
+    
+    if isinstance(big_red_button, DrBoom):
+        print(f'The emergency button {emergency_button} was pressed! Stopping.')
+        exit(1)
+    return chosen
 
 isPaused = False
 lenght = -1
@@ -366,11 +417,52 @@ def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs
 
     waitForKey(emergency_button)
 
+def keybind_listen():
+    pass
+
+def set_script_keybind(keybind_sett: dict) -> dict:
+    print(f'Press {start_record_button} to listen for trigger')
+    waitForKey(start_record_button)
+    print('Listening...')
+    trigger = waitForAnyKey()
+    while trigger in keybind_sett.get('keybinds').keys():
+        print(f'The trigger {trigger} is already in use!')
+        print(f'Press {start_record_button} to listen for trigger')
+        waitForKey(start_record_button)
+        print('Listening...')
+        trigger = waitForAnyKey()
+    file = str(input('Insert file to script: '))
+    keybind_sett.get('keybinds')[trigger] = file
+    return keybind_sett
+
+def clear_keybind(keybind_sett: dict) -> dict:
+    print(f'Press {start_record_button} to listen for trigger')
+    waitForKey(start_record_button)
+    print('Listening...')
+    trigger = waitForAnyKey()
+    if not trigger in keybind_sett.get('keybinds').keys():
+        print(f'Trigger {trigger} not found!')
+    else:
+        del keybind_sett.get('keybinds')[trigger]
+        print(f'Trigger {trigger} cleared!')
+    return keybind_sett
+
+def save_keybind_sett(keybind_sett: dict) -> dict:
+    while keybind_sett.get('filename') == None or len(keybind_sett.get('filename')) == 0:
+        keybind_sett['filename'] = str(input('Provide a name for these settings: '))
+    file = keybind_sett.get('filename')
+    del keybind_sett['filename']
+    save(keybind_sett, file, None)
+    keybind_sett['filename'] = file
+    return keybind_sett
+
 def keybind(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
     file = kwargs.get('kwargs').get('file') if file == None else file
     keybind_sett = {}
+    keybind_sett['keybinds'] = {}
     if not file == None:
         keybind_sett = load(filename=file)
+        keybind_sett['filename'] = file
     menu = {
         '0': "#exit",
         '1': keybind_listen,
@@ -378,6 +470,22 @@ def keybind(args: List[str] = [], file: str = None, f_error: Callable[[str], Non
         '3': clear_keybind,
         '4': save_keybind_sett
     }
+    option = None
+    def print_options():
+        print('0 - Exit')
+        print('1 - Keybind Listen Mode')
+        print('2 - Keybind Script Mode')
+        print('3 - Keybind Clear Mode')
+        print('4 - Save Settings')
+    print_options()
+    while not option == '0':
+        option = str(input('Insert option number: '))
+        if not option == '0' and option in menu.keys():
+            funct = menu.get(option)
+            funct(keybind_sett)
+        elif not option in menu.keys():
+            print_options()
+        pprint(keybind_sett)
 
 def menu(args: List[str] = [], file: str = None, f_error: Callable[[str], None] = None, **kwargs: dict):
     selection = {
@@ -396,13 +504,13 @@ def menu(args: List[str] = [], file: str = None, f_error: Callable[[str], None] 
         print('4 - Keybind Mode')
         
     print_options()
-    while not option == 0:
+    while not option == '0':
         option = str(input('Insert option number: '))
         file = None if not option == '2' else str(input('Provide path of file for replay: '))
-        if not option == 0:
+        if not option == '0' and not option in selection.keys():
             funct = selection.get(option)
             funct([], file=file, f_error = f_error, kwargs = kwargs)
-        if not option in selection.keys():
+        elif not option in menu.keys():
             print_options()
 
 modes = {
@@ -410,7 +518,7 @@ modes = {
     'replay': replay,
     'record': record,
     'keybind': keybind,
-    'menu': ""
+    'menu': menu
 }
 
 parser = argparse.ArgumentParser(description='Input Recorder/Replayer and a good listener!')
@@ -452,7 +560,9 @@ if vars(args[0]).get('no_keyboard'):
 
 def raise_param_error(message='Unspecified!'):
     parser.error(message=message)
-
+if not listen_mouse and not listen_key:
+    print("I'm not listening! Cya >:(")
+    exit(1)
 funct(args[1], f_error = raise_param_error, kwargs = vars(args[0]))
 
 #if len(argv)>1 and '-' in argv[1]:
