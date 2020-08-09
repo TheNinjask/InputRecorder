@@ -66,7 +66,8 @@ def ignoreKey(key: str, exclude: List = [start_record_button, start_replay_butto
     return False
 
 big_red_button = None
-def waitForKey(given: str):
+
+def waitForKey(given: str, suppress=False):
     global big_red_button
     big_red_button = None
     keyboard_halt = None
@@ -91,8 +92,8 @@ def waitForKey(given: str):
             keyboard_halt.stop()
             return False
     
-    keyboard_halt = keyboard.Listener(on_release=on_release)
-    mouse_halt = mouse.Listener(on_click=on_click)
+    keyboard_halt = keyboard.Listener(on_release=on_release, suppress=suppress)
+    mouse_halt = mouse.Listener(on_click=on_click, suppress=suppress)
     
     keyboard_halt.start()
     mouse_halt.start()
@@ -137,10 +138,10 @@ def waitForAnyKey() -> str:
         return False
     
     if listen_key:
-        keyboard_halt = keyboard.Listener(on_release=on_release)
+        keyboard_halt = keyboard.Listener(on_release=on_release, suppress=True)
         keyboard_halt.start()
     if listen_mouse:
-        mouse_halt = mouse.Listener(on_click=on_click)
+        mouse_halt = mouse.Listener(on_click=on_click, suppress=True)
         mouse_halt.start()
     
     if listen_key:
@@ -463,7 +464,7 @@ def keybind_listen(keybind_sett: dict) -> dict:
 
 def set_script_keybind(keybind_sett: dict) -> dict:
     print(f'Press {start_record_button} to listen for trigger')
-    waitForKey(start_record_button)
+    waitForKey(start_record_button, suppress=True)
     print('Listening...')
     trigger = waitForAnyKey()
     while trigger in keybind_sett.get('keybinds').keys():
