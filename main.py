@@ -104,6 +104,7 @@ def waitForKey(given: str, suppress=False):
         print(f'The emergency button {emergency_button} was pressed! Stopping.')
         exit(1)
 
+chosen = None
 def waitForAnyKey() -> str:
     global big_red_button
     global chosen
@@ -576,28 +577,28 @@ parser.add_argument('-pd', '--pydirectinput', action='store_true', help='Set pyd
 parser.add_argument('-pn', '--pynput', action='store_true', help='Set pynput\'s keyboard (Overrides the option in config.json & Priority n1)')
 args = parser.parse_known_args()
 
-funct = modes.get(vars(args[0]).get('mode'))
+funct = modes.get(args[0].mode)
 
 if funct == None:
-    if vars(args[0]).get('listen'):
+    if args[0].listen:
         funct = listen
-    elif vars(args[0]).get('record'):
+    elif args[0].record:
         funct = record
-    elif vars(args[0]).get('replay'):
+    elif args[0].replay:
         funct = replay
-    elif vars(args[0]).get('keybind'):
+    elif args[0].keybind:
         funct = keybind
     else:
         funct = menu
 
-if vars(args[0]).get('pynput'):
+if args[0].pynput:
     handler['keyboard'] = keyboard_pynput
-elif vars(args[0]).get('pydirectinput'):
+elif args[0].pydirectinput:
     handler['keyboard'] = keyboard_pydirectinput
 
-if vars(args[0]).get('no_mouse'):
+if args[0].no_mouse:
     listen_mouse = False
-if vars(args[0]).get('no_keyboard'):
+if args[0].no_keyboard:
     listen_key = False
 
 def raise_param_error(message='Unspecified!'):
