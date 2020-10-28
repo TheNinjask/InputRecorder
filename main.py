@@ -408,7 +408,6 @@ def replay(args: List[str] = [], file: str = None, f_error: Callable[[str], None
     replay_ender_flag.wait()
 
 def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs: dict):
-        
     start_time = time.time()
     def mouse_listener():
         def on_move(x, y):
@@ -436,10 +435,10 @@ def listen(args: List[str] = [], f_error: Callable[[str], None] = None, **kwargs
         keyboard_listen = keyboard.Listener(on_press=on_press, on_release=on_release)
         keyboard_listen.start()
         
-        if listen_mouse:
-            mouse_listener()
-        if listen_key:
-            keyboard_listener()
+    if listen_mouse:
+        mouse_listener()
+    if listen_key:
+        keyboard_listener()
 
     waitForKey(stop_listen_button)
 
@@ -550,10 +549,10 @@ def menu(args: List[str] = [], file: str = None, f_error: Callable[[str], None] 
     while not option == '0':
         option = str(input('Insert option number: '))
         file = None if not option == '2' else str(input('Provide path of file for replay: '))
-        if not option == '0' and not option in selection.keys():
+        if not option == '0' and option in selection.keys():
             funct = selection.get(option)
             funct([], file=file, f_error = f_error, kwargs = kwargs)
-        elif not option in menu.keys():
+        elif not option in modes.keys():
             print_options()
 
 modes = {
@@ -577,7 +576,7 @@ parser.add_argument('-pd', '--pydirectinput', action='store_true', help='Set pyd
 parser.add_argument('-pn', '--pynput', action='store_true', help='Set pynput\'s keyboard (Overrides the option in config.json & Priority n1)')
 args = parser.parse_known_args()
 
-funct = modes.get(args[0].mode)
+funct = modes.get(args[0].mode[0])
 
 if funct == None:
     if args[0].listen:
@@ -606,6 +605,7 @@ def raise_param_error(message='Unspecified!'):
 if not listen_mouse and not listen_key:
     print("I'm not listening! Cya >:(")
     exit(1)
+
 funct(args[1], f_error = raise_param_error, kwargs = vars(args[0]))
 
 #if len(argv)>1 and '-' in argv[1]:
